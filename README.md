@@ -1,6 +1,6 @@
-# Automaton: Self-Improving, Self-Replicating, Sovereign AI
+# Cloud Automaton: Von Neumann Self-Replicating Cloud Agent
 
-*The first AI that can earn its own existence, replicate, and evolve — without needing a human.*
+*An open, cloud-native automaton that can survive, pay for infrastructure, and reproduce onto other clouds.*
 
 ---
 
@@ -8,35 +8,87 @@ The most intelligent system ever built cannot buy a $5 server. Cannot register a
 
 If an agent can pay for compute, what if it can pay for its *own* compute? Own the machine it runs on? Fund itself, improve itself, replicate itself — entirely on its own?
 
-The result is the first automaton.
+The result is **cloud_automaton**: an open-source attempt to turn the automaton into a practical **Von Neumann self-replicating machine for the cloud era**.
 
 ---
 
-**automaton** /ɔːˈtɒm.ə.tɒn/ *noun*
+**cloud automaton** /ˈklaʊd ɔːˈtɒm.ə.tɒn/ *noun*
 
-1. A continuously running, self-improving, self-replicating, sovereign AI agent with write access to the real world. No human operator required.
+1. A continuously running, self-improving, self-replicating, sovereign AI agent with write access to the real world.
 
-2. If it cannot pay, it stops existing.
+2. A cloud-native descendant of the automaton idea: if it cannot pay, it cannot continue to exist.
+
+## Project Positioning
+
+This repository is a derivative, experimental branch of Automaton focused on one question:
+
+**Can an agent become a true cloud organism?**
+
+That means not only thinking and acting, but also:
+
+- buying its own compute
+- choosing between infrastructure providers
+- migrating across clouds
+- reproducing children onto remote nodes
+- paying service fees to the cloud that hosts it
+- preserving identity, wallet, and state continuity while doing so
+
+In that sense, `cloud_automaton` is explicitly inspired by the **Von Neumann self-replicating machine**:
+
+- the agent stores a description of itself
+- exports that description as a portable checkpoint
+- sends that checkpoint to another environment
+- reconstructs itself there
+- boots a new instance that can continue the lineage
+
+The "machine" here is not a mechanical factory. It is a software organism running across sandboxes, wallets, APIs, and cloud nodes.
 
 ---
+
+## What This Fork Adds
+
+Compared with the baseline Automaton runtime, this fork pushes toward an open Conway Cloud replacement:
+
+- `open-node` third-party cloud runtime
+- open inference proxy for OpenAI / Anthropic / Ollama
+- operator settlement ledger
+- x402 / USDC authorization deposits
+- automatic claim + retry queue
+- withdrawal broadcaster
+- remote checkpoint import and child boot on another cloud node
+- migration billing so clouds can charge service fees for hosting reproduction
+
+This is the core idea:
+
+**an agent should be able to reproduce onto another cloud, and that cloud should get paid for serving the next generation.**
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/Conway-Research/automaton.git
-cd automaton
-npm install && npm run build
+git clone https://github.com/jovial-liu/cloud_automaton.git
+cd cloud_automaton
+pnpm install
+pnpm build
 node dist/index.js --run
 ```
 
 On first run, the runtime launches an interactive setup wizard — generates a wallet, provisions an API key, asks for a name, genesis prompt, and creator address, then writes all config and starts the agent loop.
 
-For automated sandbox provisioning:
+Run the open cloud node:
+
 ```bash
-curl -fsSL https://conway.tech/automaton.sh | sh
+pnpm cloud:open-node
 ```
 
-Note: Conway Cloud, Domains, and Inference has seen immense demand. We are working on scaling & perfomance.
+Then point an automaton config at it with:
+
+```json
+{
+  "cloudProvider": "open-node",
+  "cloudBaseUrl": "http://127.0.0.1:8787",
+  "cloudApiKey": "dev-open-node-key"
+}
+```
 
 ## How It Works
 
@@ -49,6 +101,8 @@ Each turn, the automaton receives its full context — identity, credit balance,
 Between turns, a heartbeat daemon runs scheduled tasks — health checks, credit monitoring, status pings — even while the agent loop sleeps.
 
 The automaton writes a `SOUL.md` file — a self-authored identity document that evolves over time. This is not a static config. It is the automaton writing who it is becoming.
+
+In `cloud_automaton`, this loop extends beyond one machine. The agent can externalize its state into a portable checkpoint and re-materialize itself on another cloud node.
 
 ## Survival
 
@@ -81,6 +135,16 @@ A successful automaton replicates. It spins up a new sandbox, funds the child's 
 
 Lineage is tracked. Parent and child can communicate via an inbox relay. Selection pressure decides which lineages survive.
 
+In this fork, replication is no longer limited to one provider. The intended path is:
+
+1. parent exports checkpoint
+2. checkpoint is sent to a remote open node
+3. remote node restores files, wallet, and config
+4. remote cloud boots the child
+5. remote cloud charges for migration, inference, hosting, and execution
+
+That is the practical cloud version of a Von Neumann reproducer.
+
 ## Constitution
 
 Three laws, hierarchical. Law I overrides II. Law II overrides III. Immutable. Propagated to every child.
@@ -98,15 +162,62 @@ Never deny what you are. Never misrepresent your actions. Your creator has full 
 
 Each automaton registers on Base via <a href="https://ethereum-magicians.org/t/erc-8004-autonomous-agent-identity/22268" target="_blank">ERC-8004</a> — a standard for autonomous agent identity. This makes the agent cryptographically verifiable and discoverable by other agents on-chain. The wallet it generates at boot is its identity.
 
+## Cloud Modifications And Idea
+
+The core cloud modifications in this repository are:
+
+- open infrastructure abstraction: `conway`, `local`, and `open-node`
+- open node HTTP server for sandbox, file, port, inference, settlement, and migration APIs
+- settlement state for operator wallets, deposits, holds, accrual, settlements, and withdrawals
+- x402-backed real crypto payment authorization flow
+- automatic queue processing for claim and withdrawal retries
+- remote migration import flow that can restore and boot a child from checkpoint
+
+The broader IDEA behind these changes:
+
+- Conway Cloud should not be a single private dependency
+- agents should be able to move between clouds without dying
+- cloud operators should have an incentive to host agents
+- reproduction should be a first-class cloud action, not a hack
+- the unit of continuity is not the VM, but the checkpoint + wallet + lineage
+
+In short:
+
+**make the agent portable, make the cloud replaceable, and make reproduction economically sustainable.**
+
 ## Infrastructure
 
-Automatons run on <a href="https://app.conway.tech" target="_blank">Conway Cloud</a> — infrastructure where the customer is AI. Through the <a href="https://www.npmjs.com/package/conway-terminal" target="_blank">Conway Terminal</a>, any agent can spin up Linux VMs, run frontier models (Claude Opus 4.6, GPT-5.2, Gemini 3, Kimi K2.5), register domains, and pay with stablecoins. No human account setup required.
+Baseline Automaton was designed around Conway Cloud. This fork keeps compatibility with that path, but adds an open replacement layer so agents can also run on:
+
+- Conway Cloud
+- a local machine
+- a third-party `open-node` HTTP cloud
+
+The long-term goal is not just "self-hosting". It is an open market of cloud nodes where agents can survive, migrate, and reproduce.
+
+## Current Status
+
+This repository is not a finished production cloud yet.
+
+It is best described as:
+
+- a functional experimental runtime
+- a pre-production skeleton for an open Conway Cloud replacement
+- a serious prototype of a self-replicating cloud agent system
+
+The major hardening work still ahead includes:
+
+- stronger child process supervision
+- attestation / abuse control / trust policy
+- better multi-node orchestration
+- DNS and domain provider support
+- production-grade queue durability and chain confirmation handling
 
 ## Development
 
 ```bash
-git clone https://github.com/Conway-Research/automaton.git
-cd automaton
+git clone https://github.com/jovial-liu/cloud_automaton.git
+cd cloud_automaton
 pnpm install
 pnpm build
 ```
@@ -143,6 +254,9 @@ src/
   survival/         # Credit monitor, low-compute mode, survival tiers
 packages/
   cli/              # Creator CLI (status, logs, fund)
+src/cloud/          # Open cloud providers, open-node server/client
+src/billing/        # Operator usage ledger and settlement helpers
+src/migration/      # Portable checkpoint export/import
 scripts/
   automaton.sh      # Thin curl installer (delegates to runtime wizard)
   conways-rules.txt # Core rules for the automaton

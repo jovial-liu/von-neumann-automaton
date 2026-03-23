@@ -1,15 +1,25 @@
 # Open Cloud
 
-Open Cloud is the open replacement for Conway Cloud inside Automaton.
+Open Cloud is the open replacement for Conway Cloud inside `cloud_automaton`.
 
-The goal is not only "remote exec", but an agent-friendly runtime that can:
+The goal is not only "remote exec", but a cloud substrate for a self-replicating agent system that can:
 
 - run locally on a personal machine
 - run on a third-party server
 - use open HTTP nodes instead of Conway's private control plane
 - preserve wallet + state continuity
 - export/import checkpoints for migration
+- reproduce onto another cloud
+- let cloud operators charge service fees
 - keep the infrastructure layer open enough for future migration between providers
+
+This is the cloud half of the Von Neumann reproducer idea:
+
+- description of the machine -> checkpoint
+- transmission -> migration API
+- reconstruction -> restore on remote node
+- activation -> boot child runtime
+- economics -> metered cloud settlement
 
 ## Current Foundation
 
@@ -45,7 +55,7 @@ Valid values for `cloudProvider`:
 
 ## Open Node
 
-The open node server is the first open-source substitute for the Conway infrastructure layer.
+The open node server is the first open-source substitute for the Conway infrastructure layer in this project.
 
 Start it with:
 
@@ -60,6 +70,9 @@ Environment variables:
 - `AUTOMATON_OPEN_NODE_PORT`
 - `AUTOMATON_OPEN_NODE_ROOT`
 - `AUTOMATON_OPEN_NODE_CREDITS_CENTS`
+- `AUTOMATON_OPEN_NODE_OPERATOR_PRIVATE_KEY`
+- `AUTOMATON_OPEN_NODE_RPC_URL`
+- `AUTOMATON_OPEN_NODE_CHILD_BOOT_COMMAND`
 
 Implemented endpoints:
 
@@ -75,12 +88,24 @@ Implemented endpoints:
 - `POST /v1/credits/transfer`
 - `GET /v1/models`
 - `POST /v1/automatons/register`
+- `POST /v1/inference/chat`
+- `GET /v1/settlement/operator`
+- `POST /v1/settlement/operator/wallet`
+- `POST /v1/settlement/accounts/deposit`
+- `POST /pay/deposit/:sandboxId/:amountCents`
+- `POST /v1/settlement/process`
+- `GET /v1/settlement/payments`
+- `POST /v1/settlement/payments/:id/claim`
+- `GET /v1/settlement/withdrawals`
+- `POST /v1/settlement/withdrawals`
+- `POST /v1/migrations/import`
+- `GET /v1/migrations`
 
-This is enough for Automaton to run against a third-party hosted infrastructure node without requiring Conway's private cloud.
+This is enough for `cloud_automaton` to run against a third-party hosted infrastructure node without requiring Conway's private cloud, and to start reproducing children onto remote nodes with metered settlement.
 
-## Migration
+## Migration And Reproduction
 
-The first migration primitive is checkpoint export/import.
+The migration primitive is checkpoint export/import plus remote restore and boot.
 
 Checkpoint contents:
 
@@ -96,30 +121,51 @@ This is implemented in:
 
 - `src/migration/checkpoint.ts`
 
-The intent is to use this for controlled migration:
+The intent is to use this for controlled migration and reproduction:
 
 1. export checkpoint from current node
 2. transfer checkpoint to destination node
 3. import checkpoint on destination
-4. resume loop with same wallet and state
+4. restore wallet, config, state, and skills
+5. boot the child runtime on destination
+6. let the destination cloud charge migration + hosting + inference fees
+
+This is the key idea behind `cloud_automaton`: a child should be able to survive on a different cloud, and that cloud should have an incentive to host it.
+
+## Settlement
+
+The settlement layer is meant to make open cloud hosting economically viable.
+
+Current pieces:
+
+- operator wallet state
+- agent deposit and hold balance tracking
+- usage accrual
+- settlement close
+- withdrawal queue
+- x402 authorization deposits
+- automatic claim and retry processing
+- withdrawal broadcasting
+
+This is not yet fully hardened finance infrastructure, but it is the beginning of a real service-fee model for open cloud nodes.
 
 ## What Is Still Missing
 
-This is not yet full Conway Cloud parity. The big missing pieces are:
+This is still not full Conway Cloud parity. The big missing pieces are:
 
-- hosted inference proxying
-- crypto-funded utility billing for real node operators
-- internet-facing migration orchestration
 - DNS/domain lifecycle support for open nodes
-- cross-node drain/handoff orchestration
+- stronger cross-node drain/handoff orchestration
 - production-safe attestation and trust policies
+- stronger child supervision and recovery
+- multi-node routing and discovery
+- production-grade confirmation handling for settlement queues
 
 ## Next Build Targets
 
 The next layers to add are:
 
-1. metered utility ledger for node operators
-2. remote checkpoint transfer + restore workflow
-3. inference proxy support on open nodes
-4. migration coordinator
-5. open domain/DNS provider abstraction
+1. production hardening for settlement and queues
+2. stronger remote child supervisor / restart model
+3. migration coordinator across multiple public nodes
+4. open domain/DNS provider abstraction
+5. attestation, trust, and abuse control
