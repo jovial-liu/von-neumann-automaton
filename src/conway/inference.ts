@@ -27,6 +27,8 @@ interface InferenceClientOptions {
   openaiApiKey?: string;
   anthropicApiKey?: string;
   ollamaBaseUrl?: string;
+  proxyRequestPath?: string;
+  proxySandboxId?: string;
   /** Optional registry lookup — if provided, used before name heuristics */
   getModelProvider?: (modelId: string) => string | undefined;
 }
@@ -50,6 +52,45 @@ export function createInferenceClient(
   ): Promise<InferenceResponse> => {
     const model = opts?.model || currentModel;
     const tools = opts?.tools;
+    const isProxyMode = Boolean(options.proxyRequestPath);
+
+    if (isProxyMode) {
+      const tokenLimit = opts?.maxTokens || maxTokens;
+      const body: Record<string, unknown> = {
+        model,
+        messages: messages.map(formatMessage),
+        stream: false,
+      };
+
+      if (/^(o[1-9]|gpt-5|gpt-4\.1)/.test(model)) {
+        body.max_completion_tokens = tokenLimit;
+      } else {
+        body.max_tokens = tokenLimit;
+      }
+
+      if (opts?.temperature !== undefined) {
+        body.temperature = opts.temperature;
+      }
+
+      if (tools && tools.length > 0) {
+        body.tools = tools;
+        body.tool_choice = "auto";
+      }
+
+      if (options.proxySandboxId) {
+        body.sandbox_id = options.proxySandboxId;
+      }
+
+      return chatViaOpenAiCompatible({
+        model,
+        body,
+        apiUrl,
+        apiKey,
+        backend: "conway",
+        httpClient,
+        path: options.proxyRequestPath,
+      });
+    }
 
     const backend = resolveInferenceBackend(model, {
       openaiApiKey,
@@ -194,8 +235,9 @@ async function chatViaOpenAiCompatible(params: {
   apiKey: string;
   backend: "conway" | "openai" | "ollama";
   httpClient: ResilientHttpClient;
+  path?: string;
 }): Promise<InferenceResponse> {
-  const resp = await params.httpClient.request(`${params.apiUrl}/v1/chat/completions`, {
+  const resp = await params.httpClient.request(`${params.apiUrl}${params.path || "/v1/chat/completions"}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

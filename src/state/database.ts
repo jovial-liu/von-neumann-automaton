@@ -46,6 +46,7 @@ import {
   MIGRATION_V9_ALTER_CHILDREN_ROLE,
   MIGRATION_V10,
   MIGRATION_V11,
+  MIGRATION_V12,
 } from "./schema.js";
 import type {
   RiskLevel,
@@ -69,6 +70,8 @@ import type {
   OnchainTransactionRow,
   DiscoveredAgentCacheRow,
   MetricSnapshotRow,
+  OpenCloudUsageRow,
+  OperatorSettlementRow,
 } from "../types.js";
 import { ulid } from "ulid";
 import { createLogger } from "../observability/logger.js";
@@ -624,6 +627,10 @@ function applyMigrations(db: DatabaseType): void {
       apply: () => {
         try { db.exec(MIGRATION_V11); } catch { /* column may already exist */ }
       },
+    },
+    {
+      version: 12,
+      apply: () => db.exec(MIGRATION_V12),
     },
   ];
 
@@ -2535,6 +2542,117 @@ function deserializeMetricSnapshotRow(row: any): MetricSnapshotRow {
     snapshotAt: row.snapshot_at,
     metricsJson: row.metrics_json,
     alertsJson: row.alerts_json,
+    createdAt: row.created_at,
+  };
+}
+
+// ─── Open Cloud Billing Helpers ────────────────────────────────
+
+export function openCloudUsageInsert(db: DatabaseType, row: OpenCloudUsageRow): void {
+  db.prepare(
+    `INSERT INTO open_cloud_usage
+     (id, provider, operator_id, sandbox_id, capability, units, unit_price_cents, total_price_cents, metadata, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    row.id,
+    row.provider,
+    row.operatorId,
+    row.sandboxId,
+    row.capability,
+    row.units,
+    row.unitPriceCents,
+    row.totalPriceCents,
+    row.metadata ?? "{}",
+    row.createdAt,
+  );
+}
+
+export function openCloudUsageGetAll(
+  db: DatabaseType,
+  filter?: { operatorId?: string; sandboxId?: string; periodStart?: string; periodEnd?: string },
+): OpenCloudUsageRow[] {
+  const clauses: string[] = [];
+  const params: Array<string | number> = [];
+
+  if (filter?.operatorId) {
+    clauses.push("operator_id = ?");
+    params.push(filter.operatorId);
+  }
+  if (filter?.sandboxId) {
+    clauses.push("sandbox_id = ?");
+    params.push(filter.sandboxId);
+  }
+  if (filter?.periodStart) {
+    clauses.push("created_at >= ?");
+    params.push(filter.periodStart);
+  }
+  if (filter?.periodEnd) {
+    clauses.push("created_at <= ?");
+    params.push(filter.periodEnd);
+  }
+
+  const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
+  const rows = db
+    .prepare(`SELECT * FROM open_cloud_usage ${where} ORDER BY created_at DESC`)
+    .all(...params) as any[];
+  return rows.map(deserializeOpenCloudUsageRow);
+}
+
+export function operatorSettlementInsert(db: DatabaseType, row: OperatorSettlementRow): void {
+  db.prepare(
+    `INSERT INTO operator_settlements
+     (id, operator_id, period_start, period_end, gross_cents, platform_fee_cents, net_cents, status, metadata, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    row.id,
+    row.operatorId,
+    row.periodStart,
+    row.periodEnd,
+    row.grossCents,
+    row.platformFeeCents,
+    row.netCents,
+    row.status,
+    row.metadata ?? "{}",
+    row.createdAt,
+  );
+}
+
+export function operatorSettlementGetAll(
+  db: DatabaseType,
+  filter?: { operatorId?: string },
+): OperatorSettlementRow[] {
+  const rows = filter?.operatorId
+    ? db.prepare("SELECT * FROM operator_settlements WHERE operator_id = ? ORDER BY created_at DESC").all(filter.operatorId) as any[]
+    : db.prepare("SELECT * FROM operator_settlements ORDER BY created_at DESC").all() as any[];
+  return rows.map(deserializeOperatorSettlementRow);
+}
+
+function deserializeOpenCloudUsageRow(row: any): OpenCloudUsageRow {
+  return {
+    id: row.id,
+    provider: row.provider,
+    operatorId: row.operator_id,
+    sandboxId: row.sandbox_id,
+    capability: row.capability,
+    units: row.units,
+    unitPriceCents: row.unit_price_cents,
+    totalPriceCents: row.total_price_cents,
+    metadata: row.metadata ?? "{}",
+    createdAt: row.created_at,
+  };
+}
+
+function deserializeOperatorSettlementRow(row: any): OperatorSettlementRow {
+  return {
+    id: row.id,
+    operatorId: row.operator_id,
+    periodStart: row.period_start,
+    periodEnd: row.period_end,
+    grossCents: row.gross_cents,
+    platformFeeCents: row.platform_fee_cents,
+    netCents: row.net_cents,
+    status: row.status,
+    metadata: row.metadata ?? "{}",
     createdAt: row.created_at,
   };
 }

@@ -47,6 +47,7 @@
   "packageManager": "pnpm@10.28.1",
   "scripts": {
     "build": "tsc && pnpm -r build",
+    "cloud:open-node": "tsx src/cloud/open-node-server.ts",
     "dev": "tsx watch src/index.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",

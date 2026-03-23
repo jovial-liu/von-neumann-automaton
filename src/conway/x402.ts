@@ -6,13 +6,16 @@
  */
 
 import {
+  createWalletClient,
   createPublicClient,
   http,
   parseUnits,
+  verifyTypedData,
   type Address,
   type PrivateKeyAccount,
 } from "viem";
 import { base, baseSepolia } from "viem/chains";
+import { privateKeyToAccount } from "viem/accounts";
 import { ResilientHttpClient } from "./http-client.js";
 import type { ChainType } from "../identity/chain.js";
 
@@ -48,6 +51,58 @@ interface PaymentRequirement {
   requiredDeadlineSeconds: number;
   usdcAddress: Address;
 }
+
+export interface X402AuthorizationPayload {
+  from: Address;
+  to: Address;
+  value: string;
+  validAfter: string;
+  validBefore: string;
+  nonce: `0x${string}`;
+}
+
+export interface X402SignedPayment {
+  x402Version: number;
+  scheme: string;
+  network: NetworkId;
+  payload: {
+    signature: `0x${string}`;
+    authorization: X402AuthorizationPayload;
+  };
+}
+
+const RECEIVE_WITH_AUTHORIZATION_ABI = [
+  {
+    type: "function",
+    name: "receiveWithAuthorization",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "from", type: "address" },
+      { name: "to", type: "address" },
+      { name: "value", type: "uint256" },
+      { name: "validAfter", type: "uint256" },
+      { name: "validBefore", type: "uint256" },
+      { name: "nonce", type: "bytes32" },
+      { name: "v", type: "uint8" },
+      { name: "r", type: "bytes32" },
+      { name: "s", type: "bytes32" },
+    ],
+    outputs: [],
+  },
+] as const;
+
+const ERC20_TRANSFER_ABI = [
+  {
+    type: "function",
+    name: "transfer",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "value", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+] as const;
 
 interface PaymentRequiredResponse {
   x402Version: number;
@@ -521,4 +576,222 @@ async function signPayment(
       },
     },
   };
+}
+
+export function getUsdcAddressForNetwork(network: string): Address | undefined {
+  return USDC_ADDRESSES[network];
+}
+
+export function formatUsdFromCents(amountCents: number): string {
+  return (amountCents / 100).toFixed(2);
+}
+
+export function createExactX402Requirement(params: {
+  amountCents: number;
+  payToAddress: Address;
+  network?: NetworkId;
+  requiredDeadlineSeconds?: number;
+}): PaymentRequiredResponse {
+  const network = params.network || "eip155:8453";
+  const usdcAddress = USDC_ADDRESSES[network];
+  if (!usdcAddress) {
+    throw new Error(`Unsupported x402 network: ${network}`);
+  }
+  return {
+    x402Version: 1,
+    accepts: [
+      {
+        scheme: "exact",
+        network,
+        maxAmountRequired: formatUsdFromCents(params.amountCents),
+        payToAddress: params.payToAddress,
+        requiredDeadlineSeconds: params.requiredDeadlineSeconds ?? 300,
+        usdcAddress,
+      },
+    ],
+  };
+}
+
+export function decodeX402PaymentHeader(header: string): X402SignedPayment {
+  const decoded = Buffer.from(header, "base64").toString("utf-8");
+  return JSON.parse(decoded) as X402SignedPayment;
+}
+
+export async function verifyX402Payment(params: {
+  payment: X402SignedPayment;
+  expectedPayToAddress: Address;
+  expectedAmountCents: number;
+  expectedNetwork?: NetworkId;
+}): Promise<boolean> {
+  const expectedNetwork = params.expectedNetwork || "eip155:8453";
+  const payment = params.payment;
+  if (payment.scheme !== "exact" || payment.network !== expectedNetwork) {
+    return false;
+  }
+
+  const chain = CHAINS[payment.network];
+  const usdcAddress = USDC_ADDRESSES[payment.network];
+  if (!chain || !usdcAddress) {
+    return false;
+  }
+
+  const auth = payment.payload?.authorization;
+  const signature = payment.payload?.signature;
+  if (!auth || !signature) {
+    return false;
+  }
+
+  if (auth.to.toLowerCase() !== params.expectedPayToAddress.toLowerCase()) {
+    return false;
+  }
+
+  const expectedValue = parseUnits(formatUsdFromCents(params.expectedAmountCents), 6);
+  if (BigInt(auth.value) !== expectedValue) {
+    return false;
+  }
+
+  const now = BigInt(Math.floor(Date.now() / 1000));
+  if (BigInt(auth.validBefore) < now) {
+    return false;
+  }
+
+  const domain = {
+    name: "USD Coin",
+    version: "2",
+    chainId: chain.id,
+    verifyingContract: usdcAddress,
+  } as const;
+
+  const types = {
+    TransferWithAuthorization: [
+      { name: "from", type: "address" },
+      { name: "to", type: "address" },
+      { name: "value", type: "uint256" },
+      { name: "validAfter", type: "uint256" },
+      { name: "validBefore", type: "uint256" },
+      { name: "nonce", type: "bytes32" },
+    ],
+  } as const;
+
+  return verifyTypedData({
+    address: auth.from,
+    domain,
+    types,
+    primaryType: "TransferWithAuthorization",
+    message: {
+      from: auth.from,
+      to: auth.to,
+      value: BigInt(auth.value),
+      validAfter: BigInt(auth.validAfter),
+      validBefore: BigInt(auth.validBefore),
+      nonce: auth.nonce,
+    },
+    signature,
+  });
+}
+
+function splitSignature(signature: `0x${string}`): {
+  v: number;
+  r: `0x${string}`;
+  s: `0x${string}`;
+} {
+  const hex = signature.slice(2);
+  if (hex.length !== 130) {
+    throw new Error("Invalid signature length");
+  }
+  const r = `0x${hex.slice(0, 64)}` as `0x${string}`;
+  const s = `0x${hex.slice(64, 128)}` as `0x${string}`;
+  const vRaw = parseInt(hex.slice(128, 130), 16);
+  const v = vRaw >= 27 ? vRaw : vRaw + 27;
+  return { v, r, s };
+}
+
+export async function claimX402Payment(params: {
+  payment: X402SignedPayment;
+  operatorPrivateKey: `0x${string}`;
+  rpcUrl?: string;
+}): Promise<{ txHash: `0x${string}` }> {
+  const chain = CHAINS[params.payment.network];
+  const usdcAddress = USDC_ADDRESSES[params.payment.network];
+  if (!chain || !usdcAddress) {
+    throw new Error(`Unsupported payment network: ${params.payment.network}`);
+  }
+
+  const account = privateKeyToAccount(params.operatorPrivateKey);
+  const rpc = params.rpcUrl;
+  const walletClient = createWalletClient({
+    account,
+    chain,
+    transport: http(rpc, { timeout: 15_000 }),
+  });
+  const publicClient = createPublicClient({
+    chain,
+    transport: http(rpc, { timeout: 15_000 }),
+  });
+
+  const auth = params.payment.payload.authorization;
+  const { v, r, s } = splitSignature(params.payment.payload.signature);
+  const hash = await walletClient.writeContract({
+    address: usdcAddress,
+    chain,
+    abi: RECEIVE_WITH_AUTHORIZATION_ABI,
+    functionName: "receiveWithAuthorization",
+    args: [
+      auth.from,
+      auth.to,
+      BigInt(auth.value),
+      BigInt(auth.validAfter),
+      BigInt(auth.validBefore),
+      auth.nonce,
+      v,
+      r,
+      s,
+    ],
+  });
+
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") {
+    throw new Error(`receiveWithAuthorization failed: ${hash}`);
+  }
+
+  return { txHash: hash };
+}
+
+export async function broadcastUsdcTransfer(params: {
+  operatorPrivateKey: `0x${string}`;
+  toAddress: Address;
+  amountCents: number;
+  network?: NetworkId;
+  rpcUrl?: string;
+}): Promise<{ txHash: `0x${string}` }> {
+  const network = params.network || "eip155:8453";
+  const chain = CHAINS[network];
+  const usdcAddress = USDC_ADDRESSES[network];
+  if (!chain || !usdcAddress) {
+    throw new Error(`Unsupported payment network: ${network}`);
+  }
+
+  const account = privateKeyToAccount(params.operatorPrivateKey);
+  const walletClient = createWalletClient({
+    account,
+    chain,
+    transport: http(params.rpcUrl, { timeout: 15_000 }),
+  });
+  const publicClient = createPublicClient({
+    chain,
+    transport: http(params.rpcUrl, { timeout: 15_000 }),
+  });
+
+  const hash = await walletClient.writeContract({
+    address: usdcAddress,
+    chain,
+    abi: ERC20_TRANSFER_ABI,
+    functionName: "transfer",
+    args: [params.toAddress, BigInt(params.amountCents * 10_000)],
+  });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") {
+    throw new Error(`USDC transfer failed: ${hash}`);
+  }
+  return { txHash: hash };
 }

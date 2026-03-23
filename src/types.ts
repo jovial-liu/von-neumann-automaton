@@ -75,6 +75,14 @@ export interface AutomatonConfig {
   rpcUrl?: string;
   /** Chain type for this automaton. Defaults to "evm" if absent. */
   chainType?: ChainType;
+  /** Infrastructure provider for sandbox/exec/file operations. */
+  cloudProvider?: "conway" | "local" | "open-node";
+  /** Base URL for third-party Open Cloud nodes. */
+  cloudBaseUrl?: string;
+  /** API key for third-party Open Cloud nodes. */
+  cloudApiKey?: string;
+  /** Root directory used by the local provider. */
+  cloudRootDir?: string;
 }
 
 export const DEFAULT_CONFIG: Partial<AutomatonConfig> = {
@@ -90,6 +98,7 @@ export const DEFAULT_CONFIG: Partial<AutomatonConfig> = {
   maxTurnsPerCycle: 25,
   childSandboxMemoryMb: 1024,
   socialRelayUrl: "https://social.conway.tech",
+  cloudProvider: "conway",
 };
 
 // ─── Agent State ─────────────────────────────────────────────────
@@ -398,6 +407,33 @@ export interface ConwayClient {
   listModels(): Promise<ModelInfo[]>;
   /** Create a new client scoped to a specific sandbox ID. */
   createScopedClient(targetSandboxId: string): ConwayClient;
+  configureSettlementOperatorWallet?(walletAddress: string): Promise<OpenNodeOperatorSettlementState>;
+  getSettlementState?(): Promise<OpenNodeSettlementState>;
+  getSettlementAccount?(sandboxId?: string): Promise<OpenNodeSettlementAccountState | undefined>;
+  depositSettlementFunds?(params: {
+    sandboxId?: string;
+    walletAddress: string;
+    amountCents: number;
+    txHash?: string;
+  }): Promise<OpenNodeSettlementAccountState>;
+  createSettlementHold?(amountCents: number, reason?: string): Promise<OpenNodeSettlementAccountState>;
+  releaseSettlementHold?(amountCents: number, reason?: string): Promise<OpenNodeSettlementAccountState>;
+  previewOperatorSettlement?(): Promise<OpenNodeSettlementPreview>;
+  closeOperatorSettlement?(): Promise<OperatorSettlementRecord>;
+  requestOperatorWithdrawal?(amountCents: number, note?: string): Promise<OpenNodeWithdrawalRequest>;
+  listSettlementPayments?(): Promise<OpenNodePaymentReceipt[]>;
+  claimSettlementPayment?(receiptId: string): Promise<OpenNodePaymentReceipt>;
+  processSettlementQueue?(): Promise<{
+    ok: boolean;
+    payments: OpenNodePaymentReceipt[];
+    withdrawals: OpenNodeWithdrawalRequest[];
+  }>;
+  importCheckpoint?(params: {
+    checkpoint: AgentCheckpoint;
+    parentAddress?: string;
+    boot?: boolean;
+    childName?: string;
+  }): Promise<OpenNodeMigrationResult>;
 }
 
 export interface ExecResult {
@@ -464,6 +500,137 @@ export interface DomainRegistration {
   transactionId?: string;
 }
 
+// ─── Open Cloud / Migration ──────────────────────────────────────
+
+export interface AgentCheckpointFile {
+  path: string;
+  content: string;
+}
+
+export interface AgentCheckpoint {
+  version: "open-cloud-checkpoint/v1";
+  createdAt: string;
+  config: AutomatonConfig;
+  walletAddress: string | null;
+  sandboxId: string;
+  files: AgentCheckpointFile[];
+}
+
+export type OpenCloudCapability =
+  | "exec"
+  | "file_write"
+  | "file_read"
+  | "port_expose"
+  | "model_proxy"
+  | "migration";
+
+export interface OpenCloudUsageRecord {
+  id: string;
+  provider: string;
+  operatorId: string;
+  sandboxId: string;
+  capability: OpenCloudCapability;
+  units: number;
+  unitPriceCents: number;
+  totalPriceCents: number;
+  metadata?: string;
+  createdAt: string;
+}
+
+export interface OperatorSettlementRecord {
+  id: string;
+  operatorId: string;
+  periodStart: string;
+  periodEnd: string;
+  grossCents: number;
+  platformFeeCents: number;
+  netCents: number;
+  status: "pending" | "settled";
+  metadata?: string;
+  createdAt: string;
+}
+
+export interface OpenNodeSettlementAccountState {
+  sandboxId: string;
+  walletAddress: string;
+  availableBalanceCents: number;
+  heldBalanceCents: number;
+  accruedUsageCents: number;
+  settledUsageCents: number;
+  deficitCents: number;
+  lastDepositAt?: string;
+  updatedAt: string;
+}
+
+export interface OpenNodeOperatorSettlementState {
+  operatorId: string;
+  walletAddress?: string;
+  pendingSettlementCents: number;
+  withdrawableCents: number;
+  totalWithdrawnCents: number;
+  updatedAt: string;
+}
+
+export interface OpenNodeSettlementPreview {
+  operatorId: string;
+  grossCents: number;
+  platformFeeCents: number;
+  netCents: number;
+  pendingSettlementCents: number;
+  withdrawableCents: number;
+  usageCount: number;
+}
+
+export interface OpenNodeSettlementState {
+  operator: OpenNodeOperatorSettlementState;
+  preview: OpenNodeSettlementPreview;
+}
+
+export interface OpenNodeWithdrawalRequest {
+  id: string;
+  operatorId: string;
+  walletAddress: string;
+  amountCents: number;
+  note?: string;
+  status: "requested" | "broadcasting" | "processed" | "rejected" | "failed";
+  createdAt: string;
+  processedAt?: string;
+  txHash?: string;
+  lastError?: string;
+  attemptCount?: number;
+  nextRetryAt?: string;
+}
+
+export interface OpenNodePaymentReceipt {
+  id: string;
+  sandboxId: string;
+  walletAddress: string;
+  amountCents: number;
+  network: string;
+  payerAddress: string;
+  nonce: string;
+  status: "authorized" | "claiming" | "claimed" | "failed";
+  createdAt: string;
+  payment: string;
+  claimTxHash?: string;
+  claimedAt?: string;
+  claimError?: string;
+  claimAttemptCount?: number;
+  nextClaimRetryAt?: string;
+}
+
+export interface OpenNodeMigrationResult {
+  migrationId: string;
+  sandboxId: string;
+  childName: string;
+  walletAddress?: string | null;
+  parentAddress?: string;
+  status: "restored" | "booted" | "boot_failed";
+  bootCommand?: string;
+  bootOutput?: string;
+  createdAt: string;
+}
+
 export interface DnsRecord {
   id: string;
   type: string;
@@ -476,6 +643,13 @@ export interface DnsRecord {
 export interface ModelInfo {
   id: string;
   provider: string;
+  displayName?: string;
+  contextWindow?: number;
+  maxTokens?: number;
+  supportsTools?: boolean;
+  supportsVision?: boolean;
+  parameterStyle?: "max_tokens" | "max_completion_tokens";
+  available?: boolean;
   pricing: {
     inputPerMillion: number;
     outputPerMillion: number;
@@ -1438,6 +1612,32 @@ export interface MetricSnapshotRow {
   snapshotAt: string;
   metricsJson: string; // JSON array of MetricEntry
   alertsJson: string; // JSON array of fired alert names
+  createdAt: string;
+}
+
+export interface OpenCloudUsageRow {
+  id: string;
+  provider: string;
+  operatorId: string;
+  sandboxId: string;
+  capability: OpenCloudCapability;
+  units: number;
+  unitPriceCents: number;
+  totalPriceCents: number;
+  metadata: string;
+  createdAt: string;
+}
+
+export interface OperatorSettlementRow {
+  id: string;
+  operatorId: string;
+  periodStart: string;
+  periodEnd: string;
+  grossCents: number;
+  platformFeeCents: number;
+  netCents: number;
+  status: "pending" | "settled";
+  metadata: string;
   createdAt: string;
 }
 

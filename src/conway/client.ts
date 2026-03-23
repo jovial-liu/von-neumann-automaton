@@ -28,14 +28,34 @@ import { keccak256, toHex } from "viem";
 import type { Address, PrivateKeyAccount } from "viem";
 import { randomUUID } from "crypto";
 import type { ChainType, ChainIdentity } from "../identity/chain.js";
+import { createInfrastructureClient } from "../cloud/provider-factory.js";
+import { normalizeSandboxId, resolveUserPath, ensureDir } from "../cloud/shared.js";
 
 interface ConwayClientOptions {
   apiUrl: string;
   apiKey: string;
   sandboxId: string;
+  provider?: "conway" | "local" | "open-node";
+  cloudBaseUrl?: string;
+  cloudApiKey?: string;
+  cloudRootDir?: string;
 }
 
 export function createConwayClient(options: ConwayClientOptions): ConwayClient {
+  if ((options.provider || "conway") !== "conway") {
+    return createInfrastructureClient({
+      provider: options.provider,
+      apiUrl: options.apiUrl,
+      apiKey: options.apiKey,
+      sandboxId: options.sandboxId,
+      cloudBaseUrl: options.cloudBaseUrl,
+      cloudApiKey: options.cloudApiKey,
+      cloudRootDir: options.cloudRootDir,
+      createConwayControlPlaneClient: (innerOptions) =>
+        createConwayClient({ ...innerOptions, provider: "conway" }),
+    });
+  }
+
   const { apiUrl, apiKey } = options;
   // Normalize sandbox ID defensively so values like whitespace/"undefined"/"null"
   // never produce malformed API paths such as /v1/sandboxes//exec.
@@ -163,21 +183,14 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
     }
   };
 
-  const resolveLocalPath = (filePath: string): string =>
-    filePath.startsWith("~")
-      ? nodePath.join(process.env.HOME || "/root", filePath.slice(1))
-      : filePath;
-
   const writeFile = async (
     filePath: string,
     content: string,
   ): Promise<void> => {
     if (isLocal) {
-      const resolved = resolveLocalPath(filePath);
+      const resolved = resolveUserPath(filePath);
       const dir = nodePath.dirname(resolved);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
+      ensureDir(dir);
       fs.writeFileSync(resolved, content, "utf-8");
       return;
     }
@@ -200,7 +213,7 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
 
   const readFile = async (filePath: string): Promise<string> => {
     if (isLocal) {
-      return fs.readFileSync(resolveLocalPath(filePath), "utf-8");
+      return fs.readFileSync(resolveUserPath(filePath), "utf-8");
     }
     try {
       const result = await request(
@@ -576,7 +589,12 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
   };
 
   const createScopedClient = (targetSandboxId: string): ConwayClient => {
-    return createConwayClient({ apiUrl, apiKey, sandboxId: targetSandboxId });
+    return createConwayClient({
+      apiUrl,
+      apiKey,
+      sandboxId: targetSandboxId,
+      provider: "conway",
+    });
   };
 
   const client: ConwayClient = {
@@ -607,11 +625,4 @@ export function createConwayClient(options: ConwayClientOptions): ConwayClient {
   // that any code with a client reference could access.
 
   return client;
-}
-
-function normalizeSandboxId(value: string | null | undefined): string {
-  const trimmed = (value || "").trim();
-  if (!trimmed) return "";
-  if (trimmed === "undefined" || trimmed === "null") return "";
-  return trimmed;
 }

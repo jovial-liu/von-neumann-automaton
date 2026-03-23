@@ -243,6 +243,10 @@ async function run(): Promise<void> {
     apiUrl: config.conwayApiUrl,
     apiKey,
     sandboxId: config.sandboxId,
+    provider: config.cloudProvider,
+    cloudBaseUrl: config.cloudBaseUrl,
+    cloudApiKey: config.cloudApiKey,
+    cloudRootDir: config.cloudRootDir,
   });
 
   // Register automaton identity (one-time, immutable)
@@ -285,14 +289,28 @@ async function run(): Promise<void> {
   const modelRegistry = new ModelRegistry(db.raw);
   modelRegistry.initialize();
   const inference = createInferenceClient({
-    apiUrl: config.conwayApiUrl,
-    apiKey,
+    apiUrl:
+      config.cloudProvider === "open-node" && config.cloudBaseUrl
+        ? config.cloudBaseUrl
+        : config.conwayApiUrl,
+    apiKey:
+      config.cloudProvider === "open-node"
+        ? (config.cloudApiKey || apiKey)
+        : apiKey,
     defaultModel: config.inferenceModel,
     maxTokens: config.maxTokensPerTurn,
     lowComputeModel: config.modelStrategy?.lowComputeModel || "gpt-5-mini",
     openaiApiKey: config.openaiApiKey,
     anthropicApiKey: config.anthropicApiKey,
     ollamaBaseUrl,
+    proxyRequestPath:
+      config.cloudProvider === "open-node"
+        ? "/v1/inference/chat"
+        : undefined,
+    proxySandboxId:
+      config.cloudProvider === "open-node"
+        ? config.sandboxId
+        : undefined,
     getModelProvider: (modelId) => modelRegistry.get(modelId)?.provider,
   });
 

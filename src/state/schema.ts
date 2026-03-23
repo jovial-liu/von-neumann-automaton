@@ -5,7 +5,7 @@
  * The database IS the automaton's memory.
  */
 
-export const SCHEMA_VERSION = 11;
+export const SCHEMA_VERSION = 12;
 
 export const CREATE_TABLES = `
   -- Schema version tracking
@@ -656,6 +656,39 @@ export const MIGRATION_V11 = `
   -- Schema version: 11
   -- Add chain_type column to children table for multi-chain support
   ALTER TABLE children ADD COLUMN chain_type TEXT DEFAULT 'evm';
+`;
+
+export const MIGRATION_V12 = `
+  CREATE TABLE IF NOT EXISTS open_cloud_usage (
+    id TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    operator_id TEXT NOT NULL,
+    sandbox_id TEXT NOT NULL,
+    capability TEXT NOT NULL,
+    units REAL NOT NULL DEFAULT 0,
+    unit_price_cents INTEGER NOT NULL DEFAULT 0,
+    total_price_cents INTEGER NOT NULL DEFAULT 0,
+    metadata TEXT DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_open_cloud_usage_operator ON open_cloud_usage(operator_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_open_cloud_usage_sandbox ON open_cloud_usage(sandbox_id, created_at);
+
+  CREATE TABLE IF NOT EXISTS operator_settlements (
+    id TEXT PRIMARY KEY,
+    operator_id TEXT NOT NULL,
+    period_start TEXT NOT NULL,
+    period_end TEXT NOT NULL,
+    gross_cents INTEGER NOT NULL DEFAULT 0,
+    platform_fee_cents INTEGER NOT NULL DEFAULT 0,
+    net_cents INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'pending',
+    metadata TEXT DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_operator_settlements_operator ON operator_settlements(operator_id, created_at);
 `;
 
 export const MIGRATION_V10 = `
