@@ -1,7 +1,7 @@
 {
-  "name": "@conway/automaton",
+  "name": "von-neumann-automaton",
   "version": "0.2.1",
-  "description": "Conway Automaton - Sovereign AI Agent Runtime",
+  "description": "von-neumann-automaton - Self-Replicating Cloud Agent Runtime",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -28,14 +28,14 @@
     }
   },
   "bin": {
-    "automaton": "dist/index.js",
-    "conway-automaton": "dist/index.js"
+    "von-neumann-automaton": "dist/index.js",
+    "automaton": "dist/index.js"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Conway-Research/automaton.git"
+    "url": "https://github.com/jovial-liu/von-neumann-automaton.git"
   },
-  "homepage": "https://conway.tech",
+  "homepage": "https://github.com/jovial-liu/von-neumann-automaton",
   "keywords": [
     "autonomous-agent",
     "sovereign-ai",

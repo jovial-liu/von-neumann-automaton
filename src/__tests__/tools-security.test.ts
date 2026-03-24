@@ -659,7 +659,7 @@ describe("package install inline validation", () => {
 
   it("install_npm_package allows scoped packages", async () => {
     const tool = tools.find((t) => t.name === "install_npm_package")!;
-    await tool.execute({ package: "@conway/automaton" }, ctx);
+    await tool.execute({ package: "von-neumann-automaton" }, ctx);
     expect(conway.execCalls.length).toBe(1);
   });
 });

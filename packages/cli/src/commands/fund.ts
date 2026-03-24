@@ -4,8 +4,8 @@
  * Transfer Conway credits using the configured Conway API key.
  */
 
-import { loadConfig } from "@conway/automaton/config.js";
-import { isValidAddress } from "@conway/automaton/identity/chain.js";
+import { loadConfig } from "von-neumann-automaton/config.js";
+import { isValidAddress } from "von-neumann-automaton/identity/chain.js";
 
 const args = process.argv.slice(3);
 const amount = args[0];

@@ -7,9 +7,9 @@
  * using the same canonical format as the runtime client.
  */
 
-import { loadConfig } from "@conway/automaton/config.js";
-import { isValidAddress } from "@conway/automaton/identity/chain.js";
-import { validateRelayUrl } from "@conway/automaton/social/validation.js";
+import { loadConfig } from "von-neumann-automaton/config.js";
+import { isValidAddress } from "von-neumann-automaton/identity/chain.js";
+import { validateRelayUrl } from "von-neumann-automaton/social/validation.js";
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
 import { keccak256, toBytes } from "viem";
 import fs from "fs";

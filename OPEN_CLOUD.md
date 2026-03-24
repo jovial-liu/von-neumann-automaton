@@ -1,6 +1,6 @@
 # Open Cloud
 
-Open Cloud is the open replacement for Conway Cloud inside `cloud_automaton`.
+Open Cloud is the open replacement for Conway Cloud inside `von-neumann-automaton`.
 
 The goal is not only "remote exec", but a cloud substrate for a self-replicating agent system that can:
 
@@ -101,7 +101,7 @@ Implemented endpoints:
 - `POST /v1/migrations/import`
 - `GET /v1/migrations`
 
-This is enough for `cloud_automaton` to run against a third-party hosted infrastructure node without requiring Conway's private cloud, and to start reproducing children onto remote nodes with metered settlement.
+This is enough for `von-neumann-automaton` to run against a third-party hosted infrastructure node without requiring Conway's private cloud, and to start reproducing children onto remote nodes with metered settlement.
 
 ## Migration And Reproduction
 
@@ -130,7 +130,7 @@ The intent is to use this for controlled migration and reproduction:
 5. boot the child runtime on destination
 6. let the destination cloud charge migration + hosting + inference fees
 
-This is the key idea behind `cloud_automaton`: a child should be able to survive on a different cloud, and that cloud should have an incentive to host it.
+This is the key idea behind `von-neumann-automaton`: a child should be able to survive on a different cloud, and that cloud should have an incentive to host it.
 
 ## Settlement
 

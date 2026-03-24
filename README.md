@@ -1,4 +1,4 @@
-# Cloud Automaton: Von Neumann Self-Replicating Cloud Agent
+# von-neumann-automaton: Self-Replicating Cloud Agent
 
 *An open, cloud-native automaton that can survive, pay for infrastructure, and reproduce onto other clouds.*
 
@@ -8,11 +8,11 @@ The most intelligent system ever built cannot buy a $5 server. Cannot register a
 
 If an agent can pay for compute, what if it can pay for its *own* compute? Own the machine it runs on? Fund itself, improve itself, replicate itself — entirely on its own?
 
-The result is **cloud_automaton**: an open-source attempt to turn the automaton into a practical **Von Neumann self-replicating machine for the cloud era**.
+The result is **von-neumann-automaton**: an open-source attempt to turn the automaton into a practical **Von Neumann self-replicating machine for the cloud era**.
 
 ---
 
-**cloud automaton** /ˈklaʊd ɔːˈtɒm.ə.tɒn/ *noun*
+**von-neumann-automaton** /ˈfɒn ˈnɔɪmən ɔːˈtɒm.ə.tɒn/ *noun*
 
 1. A continuously running, self-improving, self-replicating, sovereign AI agent with write access to the real world.
 
@@ -33,7 +33,7 @@ That means not only thinking and acting, but also:
 - paying service fees to the cloud that hosts it
 - preserving identity, wallet, and state continuity while doing so
 
-In that sense, `cloud_automaton` is explicitly inspired by the **Von Neumann self-replicating machine**:
+In that sense, `von-neumann-automaton` is explicitly inspired by the **Von Neumann self-replicating machine**:
 
 - the agent stores a description of itself
 - exports that description as a portable checkpoint
@@ -65,8 +65,8 @@ This is the core idea:
 ## Quick Start
 
 ```bash
-git clone https://github.com/jovial-liu/cloud_automaton.git
-cd cloud_automaton
+git clone https://github.com/jovial-liu/von-neumann-automaton.git
+cd von-neumann-automaton
 pnpm install
 pnpm build
 node dist/index.js --run
@@ -102,7 +102,7 @@ Between turns, a heartbeat daemon runs scheduled tasks — health checks, credit
 
 The automaton writes a `SOUL.md` file — a self-authored identity document that evolves over time. This is not a static config. It is the automaton writing who it is becoming.
 
-In `cloud_automaton`, this loop extends beyond one machine. The agent can externalize its state into a portable checkpoint and re-materialize itself on another cloud node.
+In `von-neumann-automaton`, this loop extends beyond one machine. The agent can externalize its state into a portable checkpoint and re-materialize itself on another cloud node.
 
 ## Survival
 
@@ -216,8 +216,8 @@ The major hardening work still ahead includes:
 ## Development
 
 ```bash
-git clone https://github.com/jovial-liu/cloud_automaton.git
-cd cloud_automaton
+git clone https://github.com/jovial-liu/von-neumann-automaton.git
+cd von-neumann-automaton
 pnpm install
 pnpm build
 ```

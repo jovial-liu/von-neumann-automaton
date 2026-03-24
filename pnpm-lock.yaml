@@ -72,7 +72,7 @@ importers:
 
   packages/cli:
     dependencies:
-      '@conway/automaton':
+      von-neumann-automaton:
         specifier: workspace:*
         version: link:../..
       chalk:

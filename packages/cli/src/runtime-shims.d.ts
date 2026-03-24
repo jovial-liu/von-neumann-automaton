@@ -1,4 +1,4 @@
-declare module "@conway/automaton/config.js" {
+declare module "von-neumann-automaton/config.js" {
   export interface AutomatonCliConfig {
     name: string;
     walletAddress: string;
@@ -17,7 +17,7 @@ declare module "@conway/automaton/config.js" {
   export function resolvePath(p: string): string;
 }
 
-declare module "@conway/automaton/state/database.js" {
+declare module "von-neumann-automaton/state/database.js" {
   export interface CliToolCall {
     name: string;
     result: string;
@@ -57,12 +57,12 @@ declare module "@conway/automaton/state/database.js" {
   export function createDatabase(path: string): AutomatonCliDatabase;
 }
 
-declare module "@conway/automaton/identity/chain.js" {
+declare module "von-neumann-automaton/identity/chain.js" {
   export type ChainType = "evm" | "solana";
 
   export function isValidAddress(address: string, chainType?: ChainType): boolean;
 }
 
-declare module "@conway/automaton/social/validation.js" {
+declare module "von-neumann-automaton/social/validation.js" {
   export function validateRelayUrl(url: string): void;
 }

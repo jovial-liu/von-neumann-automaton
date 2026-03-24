@@ -27,15 +27,15 @@ describe("creator CLI command validation", () => {
 
     process.argv = ["node", "automaton-cli", "send", "not-an-address", "hello"];
 
-    vi.doMock("@conway/automaton/config.js", () => ({
+    vi.doMock("von-neumann-automaton/config.js", () => ({
       loadConfig: () => ({
         socialRelayUrl: "https://social.conway.tech",
       }),
     }));
-    vi.doMock("@conway/automaton/identity/chain.js", () => ({
+    vi.doMock("von-neumann-automaton/identity/chain.js", () => ({
       isValidAddress: () => false,
     }));
-    vi.doMock("@conway/automaton/social/validation.js", () => ({
+    vi.doMock("von-neumann-automaton/social/validation.js", () => ({
       validateRelayUrl: vi.fn(),
     }));
     vi.doMock("viem/accounts", () => ({
@@ -75,7 +75,7 @@ describe("creator CLI command validation", () => {
     process.argv = ["node", "automaton-cli", "fund", "5.00", "--to", "not-an-address"];
     vi.stubGlobal("fetch", fetchSpy);
 
-    vi.doMock("@conway/automaton/config.js", () => ({
+    vi.doMock("von-neumann-automaton/config.js", () => ({
       loadConfig: () => ({
         name: "Test Automaton",
         walletAddress: "0x1234567890123456789012345678901234567890",
@@ -83,7 +83,7 @@ describe("creator CLI command validation", () => {
         conwayApiUrl: "https://api.conway.tech",
       }),
     }));
-    vi.doMock("@conway/automaton/identity/chain.js", () => ({
+    vi.doMock("von-neumann-automaton/identity/chain.js", () => ({
       isValidAddress: () => false,
     }));
 
