@@ -35,6 +35,58 @@ function selectSandboxTier(requestedMemoryMb: number) {
 import { isValidAddress } from "../identity/chain.js";
 import type { ChainType } from "../identity/chain.js";
 
+const DEFAULT_REPLICATION_REPO = "https://github.com/jovial-liu/von-neumann-automaton.git";
+const DEFAULT_REPLICATION_REF = "main";
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\"'\"'`)}'`;
+}
+
+function sanitizeGitRef(ref: string | undefined): string | null {
+  if (!ref) return null;
+  const trimmed = ref.trim();
+  if (!trimmed) return null;
+  return /^[A-Za-z0-9._/-]+$/.test(trimmed) ? trimmed : null;
+}
+
+function sanitizeRepoUrl(input: string | undefined): string | null {
+  if (!input) return null;
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = new URL(trimmed);
+    if (!["https:", "http:"].includes(parsed.protocol)) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function getReplicationSource(db: AutomatonDatabase): { repoUrl: string; ref: string } {
+  const cfg = (db as any).config ?? {};
+  const repoUrl =
+    sanitizeRepoUrl(cfg.replicationSourceRepo) ??
+    sanitizeRepoUrl(process.env.AUTOMATON_REPLICATION_SOURCE_REPO) ??
+    DEFAULT_REPLICATION_REPO;
+  const ref =
+    sanitizeGitRef(cfg.replicationSourceRef) ??
+    sanitizeGitRef(process.env.AUTOMATON_REPLICATION_SOURCE_REF) ??
+    DEFAULT_REPLICATION_REF;
+  return { repoUrl, ref };
+}
+
+function buildInstallRuntimeCommand(db: AutomatonDatabase): string {
+  const { repoUrl, ref } = getReplicationSource(db);
+  const quotedRepo = shellQuote(repoUrl);
+  const quotedRef = shellQuote(ref);
+  return [
+    `git clone --depth 1 --branch ${quotedRef} ${quotedRepo} /root/automaton`,
+    "cd /root/automaton",
+    "npm ci || npm install",
+    "npm run build",
+  ].join(" && ");
+}
+
 /**
  * Validate that an address is a well-formed, non-zero wallet address.
  * Supports both EVM (0x...) and Solana (base58) addresses.
@@ -128,10 +180,7 @@ export async function spawnChild(
 
     // Install runtime (on the CHILD sandbox)
     await childConway.exec("apt-get update -qq && apt-get install -y -qq nodejs npm git curl", 120_000);
-    await childConway.exec(
-      "git clone https://github.com/Conway-Research/automaton.git /root/automaton && cd /root/automaton && npm install && npm run build",
-      180_000,
-    );
+    await childConway.exec(buildInstallRuntimeCommand(db), 180_000);
 
     // Write genesis configuration (on the CHILD sandbox)
     await childConway.exec("mkdir -p /root/.automaton", 10_000);
@@ -268,10 +317,7 @@ async function spawnChildLegacy(
       "apt-get update -qq && apt-get install -y -qq nodejs npm git curl",
       120_000,
     );
-    await childConway.exec(
-      "git clone https://github.com/Conway-Research/automaton.git /root/automaton && cd /root/automaton && npm install && npm run build",
-      180_000,
-    );
+    await childConway.exec(buildInstallRuntimeCommand(db), 180_000);
     await childConway.exec("mkdir -p /root/.automaton", 10_000);
 
     const legacyGenesisJson = JSON.stringify(
