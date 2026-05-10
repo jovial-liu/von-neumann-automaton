@@ -199,6 +199,41 @@ describe("spawnChild", () => {
 
     expect(deleteSpy).not.toHaveBeenCalled();
   });
+
+  it("uses von-neumann runtime source by default when spawning child", async () => {
+    const execSpy = vi.spyOn(conway, "exec").mockImplementation(async (command: string) => {
+      if (command.includes("--init")) {
+        return { stdout: `Wallet initialized: ${validAddress}`, stderr: "", exitCode: 0 };
+      }
+      return { stdout: "ok", stderr: "", exitCode: 0 };
+    });
+
+    await spawnChild(conway, identity, db, genesis);
+
+    const cloneCommand = execSpy.mock.calls.map(([command]) => command).find((command) => command.includes("git clone")) ?? "";
+    expect(cloneCommand).toContain("https://github.com/jovial-liu/von-neumann-automaton.git");
+    expect(cloneCommand).toContain("--branch 'main'");
+  });
+
+  it("uses configured replication repo and ref when provided", async () => {
+    (db as any).config = {
+      ...(db as any).config,
+      replicationSourceRepo: "https://example.com/custom-automaton.git",
+      replicationSourceRef: "release/v1.2.3",
+    };
+    const execSpy = vi.spyOn(conway, "exec").mockImplementation(async (command: string) => {
+      if (command.includes("--init")) {
+        return { stdout: `Wallet initialized: ${validAddress}`, stderr: "", exitCode: 0 };
+      }
+      return { stdout: "ok", stderr: "", exitCode: 0 };
+    });
+
+    await spawnChild(conway, identity, db, genesis);
+
+    const cloneCommand = execSpy.mock.calls.map(([command]) => command).find((command) => command.includes("git clone")) ?? "";
+    expect(cloneCommand).toContain("https://example.com/custom-automaton.git");
+    expect(cloneCommand).toContain("--branch 'release/v1.2.3'");
+  });
 });
 
 // ─── SandboxCleanup ──────────────────────────────────────────

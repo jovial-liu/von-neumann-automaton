@@ -83,6 +83,10 @@ export interface AutomatonConfig {
   cloudApiKey?: string;
   /** Root directory used by the local provider. */
   cloudRootDir?: string;
+  /** Git repo used as the runtime source when spawning children. */
+  replicationSourceRepo?: string;
+  /** Git branch/tag/commit-ish used when spawning children. */
+  replicationSourceRef?: string;
 }
 
 export const DEFAULT_CONFIG: Partial<AutomatonConfig> = {
